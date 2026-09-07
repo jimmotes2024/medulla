@@ -21,10 +21,9 @@ marker and without changing it. That is also how you reach the pre-login home
 again (`MEDULLA_USER=local`).
 
 `medulla logout` clears the *session* and leaves the marker alone, so subsequent
-commands still resolve that account's home. That is deliberate: the account's
-`config.toml` is where a staging or self-hosted `backend.baseUrl` lives, and
-forgetting which account was active would offer the next login a production
-endpoint the operator never configured.
+commands still resolve that account's home. That is deliberate: an account's
+directory holds its own config and state, and forgetting which account was active
+would strand the next login somewhere the operator never chose.
 
 Signing in as a different account moves the marker, never the data: the previous
 account's directory stays where it is, and signing back in returns to it. A
@@ -52,13 +51,13 @@ A `.env` file in the current directory is loaded at startup, before anything rea
 
 Config is merged from lowest to highest precedence (highest wins):
 
-1. Built-in defaults (production endpoints; `MEDULLA_STAGING` flips the default URLs).
+1. Built-in defaults (production endpoints).
 2. User-global `<home>/config.toml`.
 3. Project-local `./.medulla/config.toml` (else `./medulla.toml`).
-4. Environment variables (`MEDULLA_API_URL`, `MEDULLA_TOKEN` via `tokenEnv`, `MEDULLA_STAGING`, `MEDULLA_STATE_DIR`, and the `MEDULLA_*` harness knobs, whose old `TINYPLACE_*` spelling is deprecated but still read).
+4. Environment variables (`MEDULLA_TOKEN` via `tokenEnv`, `MEDULLA_STATE_DIR`, and the `MEDULLA_*` harness knobs, whose old `TINYPLACE_*` spelling is deprecated but still read). The backend endpoint is not among them — see [Endpoints](#endpoints).
 5. CLI flags.
 
-Files are merged field-by-field (a recursive table merge), so a project-local file can override just `backend.baseUrl` without discarding the rest of a global file. [TOML](https://toml.io/) is the primary format; `--config <path>` still accepts either `.toml` or `.json` (parser chosen by extension) and bypasses file discovery, but env vars and CLI flags still override it. The Config tab shows the merged effective config and lists the source files that contributed.
+Files are merged field-by-field (a recursive table merge), so a project-local file can override just `backend.tokenEnv` without discarding the rest of a global file. [TOML](https://toml.io/) is the primary format; `--config <path>` still accepts either `.toml` or `.json` (parser chosen by extension) and bypasses file discovery, but env vars and CLI flags still override it. The Config tab shows the merged effective config and lists the source files that contributed.
 
 ### The sections
 
@@ -101,21 +100,30 @@ See [`config.example.toml`](https://github.com/tinyhumansai/medulla/blob/main/co
 
 ## Endpoints
 
-The backend base URL defaults to production, `https://api.tinyhumans.ai`. Set `MEDULLA_STAGING=1` (or `true`, case-insensitive) to switch it to `https://staging-api.tinyhumans.ai`.
+The backend base URL is **pinned to production**, `https://api.tinyhumans.ai`. It is
+a constant in the binary: no environment variable, config key, or flag moves it.
 
-The link forwarder has no endpoint of its own: it is served by the same backend, so `link.forwarderUrl` defaults to whatever `backend.baseUrl` resolved to and moves with it. Set it explicitly only for a deliberately split deployment.
+This is a change. `MEDULLA_API_URL` and `MEDULLA_STAGING` were both honoured, as was
+a `backend.baseUrl` key in the config file. All three are now ignored. A config that
+still carries `backend.baseUrl` parses without complaint and the key does nothing —
+it is even written back out with the endpoint the binary actually uses, so a config
+you dump will never disagree with where your traffic goes. Reaching any other
+deployment means editing the constant and rebuilding.
 
-Base-URL precedence, highest first:
+The link forwarder is a different service and is still configurable: it is normally
+served by the same backend, so `link.forwarderUrl` defaults to the pinned backend URL.
+Set it explicitly only for a deliberately split deployment.
 
-* Backend: `MEDULLA_API_URL` env var, then config-file `backend.baseUrl`, then the staging or production default.
-* Link forwarder: config-file `link.forwarderUrl`, then the resolved backend base URL.
+Base-URL precedence, such as remains of it:
 
-Override the base URL (and the token env var name) in the config file, for example to point at a local backend:
+* Backend: the pinned constant. Nothing else.
+* Link forwarder: config-file `link.forwarderUrl`, then the pinned backend URL.
+
+The token env var name is still config's to set:
 
 ```json
 {
   "backend": {
-    "baseUrl": "http://localhost:5000",
     "tokenEnv": "MEDULLA_TOKEN"
   }
 }

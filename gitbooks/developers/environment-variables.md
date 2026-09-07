@@ -25,10 +25,13 @@ these can be set either way. Truthy values are `1` and `true`, case-insensitive.
 
 ## Backend and authentication
 
+The backend endpoint is **not** configurable. It is compiled into the binary as
+`https://api.tinyhumans.ai`, and no environment variable moves it. `MEDULLA_API_URL`
+and `MEDULLA_STAGING` used to, and no longer do — setting either has no effect at
+all rather than an error, because there is no longer a setting to be wrong about.
+
 | Variable | What it does | Default |
 | --- | --- | --- |
-| `MEDULLA_API_URL` | Backend base URL. Beats config-file `backend.baseUrl` and the built-in default. | unset |
-| `MEDULLA_STAGING` | Truthy flips the built-in default base URL from production to staging. | unset |
 | `MEDULLA_TOKEN` | The bearer JWT, named by the default `backend.tokenEnv`. Config can point `tokenEnv` at a different variable. | unset |
 
 ## Halves of the process
