@@ -87,9 +87,9 @@ rather than saving one nothing would read, so a login that reports this is
 telling you which source to remove.
 
 A stored session is also scoped to the deployment that issued it: it records its
-own `baseUrl` and is only offered to a `backend.baseUrl` with a matching origin.
-If you have repointed the config at a different deployment, sign in again against
-that one.
+own `baseUrl` and is only offered to a backend with a matching origin. A session
+minted against another deployment — by an older build, back when the endpoint was
+configurable — will not be offered to the pinned one; sign in again.
 
 Older installs kept a separate `credentials.json`, which could report success
 while the runtime stayed signed out. `login` now adopts that file — verifying its
@@ -106,8 +106,9 @@ home. See [Medulla home](configuration.md#medulla-home).
 Readiness is three states, not two, because a host answers each differently: run,
 sign in, or stop. Reachable but signed out opens the login flow. No backend URL
 at all reports that error instead, because a login screen cannot fix a missing
-base URL. Check `backend.baseUrl` in the config, or `MEDULLA_API_URL`, and
-whether `MEDULLA_STAGING` is pointing you somewhere you did not intend.
+base URL. The endpoint is pinned into the binary now, so this is no longer
+something a config or environment variable can get wrong — a build that reports it
+is a build whose constant is empty, which is a bug worth filing.
 
 To get a working interface with no backend at all, ask for the mock runtime:
 `medulla --mock`. The login screen deliberately does not offer it — a failed

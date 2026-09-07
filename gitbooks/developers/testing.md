@@ -310,7 +310,7 @@ It fails closed on every axis, so it cannot start by accident:
 | --- | --- |
 | `E2E_LIVE=1` | Required; the deliberate opt-in. |
 | `OPENROUTER_API_KEY` | Required; billed per token. |
-| `MEDULLA_STAGING=1` | The default. Targeting production additionally needs `E2E_ALLOW_PROD=1`. |
+| `E2E_ALLOW_PROD=1` | Required. The endpoint is pinned to production, so this suite has nowhere else to run; `MEDULLA_STAGING` no longer exists and the harness refuses if it is set. |
 | `LIVE_MODEL` | Defaults to a cheap small model. |
 | `MEDULLA_LINK_FORWARDER` | A deployed forwarder implementing section 5 of the [link protocol](host-link-protocol.md#5-forwarder-rules). |
 | `MEDULLA_LINK_HOME_<name>`, `MEDULLA_LINK_OWNER_DIR_<name>` | Provisioned `node.json` identity directories. |
