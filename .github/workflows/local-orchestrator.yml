@@ -1,0 +1,22 @@
+name: Local orchestrator
+on:
+  push:
+    branches: [axiom/local-orchestrator]
+    paths: ['orchestrator/**', '.github/workflows/local-orchestrator.yml', 'VERSION']
+  pull_request:
+    paths: ['orchestrator/**', '.github/workflows/local-orchestrator.yml', 'VERSION']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify local runtime and disposable workers
+        working-directory: orchestrator
+        run: python3 -m unittest discover -s tests -v
+      - name: Verify console syntax
+        run: node --check orchestrator/medulla_local/web/app.js

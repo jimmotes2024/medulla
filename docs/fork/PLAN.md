@@ -1,6 +1,6 @@
 # Local orchestration release plan
 
-Version: 0.12.0-dev.1
+Version: 0.12.0
 
 Build an independently runnable local coordinator and human console in this fork. Preserve the upstream documentation and source provenance. No current agent work is enrolled or modified during development.
 
@@ -15,6 +15,8 @@ Build an independently runnable local coordinator and human console in this fork
 7. Versioned documentation and passing verification committed and pushed to this fork's development branch.
 
 ## Adoption boundary
+
+Release 0.12.0 completion: the seven first-release criteria above are implemented. Verification includes 38 passing tests, a real disposable child worker, a service restart, and a live local rehearsal whose first artifact awaits operator review and whose dependent assignment awaits approval. Native existing-session integration remains deliberately outside this release.
 
 This release coordinates explicitly connected workers. It does not wake, migrate, message, read or take over existing Axiom, Vanguard, Dara, Gemini or other sessions. Their enrollment is a later, deliberate cutover. Model-driven planning and native harness adapters are subsequent increments, not claims of this release.
 

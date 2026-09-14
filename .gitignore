@@ -2,3 +2,9 @@
 node_modules/
 /worktrees/*
 !/worktrees/.gitkeep
+__pycache__/
+*.py[cod]
+.medulla-local/
+*.key
+*.sqlite3*
+.venv/
