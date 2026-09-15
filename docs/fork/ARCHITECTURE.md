@@ -37,3 +37,8 @@ A restart preserves pending tasks, reviews, approvals, completed artifacts and c
 ## Deliberate exclusions
 
 This release has no model-driven planner, native Codex/Claude/Grok/Gemini adapter, stopped-session wakeup, production deployment runner, external secrets vault or remote access. Enrolling a worker does not implement any of those. Existing sessions remain outside this coordinator until separately connected through a reviewed adapter.
+
+
+## Existing project overview — 0.12.1
+
+The separate Sources reader attaches explicitly configured local cockpit snapshots to operator state. It has no reference to worker dispatch or SQLite mutations. The console uses an Overview route for these records and retains Work for executable local assignments. See [project connections](PROJECT_CONNECTIONS.md) for the dated source contract and error behavior.

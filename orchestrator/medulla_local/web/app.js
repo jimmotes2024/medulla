@@ -1,11 +1,11 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = {data: null, project: null, task: null, view: 'work', signedIn: false, pendingAction: null, workerKey: null};
+const state = {data: null, project: null, observed: null, task: null, view: 'overview', signedIn: false, pendingAction: null, workerKey: null};
 const labels = {queued:'Queued', claimed:'Claimed', delivered:'Delivered', running:'Working', review:'Ready for review',
   completed:'Accepted', awaiting_approval:'Needs approval', failed:'Failed', cancelled:'Cancelled', interrupted:'Interrupted', changes_requested:'Changes requested'};
 const attention = ['review','awaiting_approval','interrupted','failed','changes_requested'];
-let listKey = '', detailKey = '', eventKey = '';
+let listKey = '', detailKey = '', eventKey = '', overviewKey = '';
 
 function node(tag, className, value) {
   const result = document.createElement(tag);
@@ -43,20 +43,99 @@ async function refresh() {
 }
 function render() {
   const data = state.data;
-  $('page-title').textContent = state.view === 'work' ? data.projects.find(p => p.id === state.project)?.name || 'All projects' : state.view === 'agents' ? 'Agent registry' : 'Activity';
+  const observed = observedProject();
+  $('page-title').textContent = state.view === 'overview' ? observed?.name || 'Project overview' : state.view === 'work' ? data.projects.find(p => p.id === state.project)?.name || 'All projects' : state.view === 'agents' ? 'Agent registry' : 'Activity';
+  $('page-eyebrow').textContent = state.view === 'overview' ? 'EXISTING PROJECT · READ ONLY' : 'WORKSPACE';
+  ['export','pause','new-task'].forEach(id => $(id).hidden = state.view === 'overview');
+  $('refresh-overview').hidden = state.view !== 'overview';
   $('pause').textContent = data.paused ? 'Resume dispatch' : 'Pause dispatch'; $('paused-banner').hidden = !data.paused;
   $('nav-work-count').textContent = data.tasks.filter(t => !['completed','cancelled'].includes(t.state)).length;
   $('nav-agent-count').textContent = data.agents.length;
   document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('selected', b.dataset.view === state.view));
-  ['work','agents','activity'].forEach(v => $(v + '-view').hidden = v !== state.view);
-  renderProjects(); renderWork(); renderAgents(); renderEvents();
+  ['overview','work','agents','activity'].forEach(v => $(v + '-view').hidden = v !== state.view);
+  renderProjects(); renderOverview(); renderWork(); renderAgents(); renderEvents();
 }
 function renderProjects() {
   const list = $('project-list');
   const items = [{id:null,name:'All projects'}, ...state.data.projects];
-  if (list.dataset.key === JSON.stringify([items, state.project])) return;
-  list.dataset.key = JSON.stringify([items, state.project]);
-  list.replaceChildren(...items.map(p => button(p.name, () => {state.project=p.id;state.view='work';state.task=null;render();}, 'project-item' + (p.id === state.project ? ' active' : ''))));
+  const observed = state.data.observed?.projects || [];
+  const key = JSON.stringify([items, observed.map(p=>[p.id,p.name]), state.project, state.observed, state.view]);
+  if (list.dataset.key === key) return;
+  list.dataset.key = key;
+  list.replaceChildren(...observed.map(p=>button(p.name,()=>{state.observed=p.id;state.view='overview';render();},'project-item' + (state.view==='overview'&&observedProject()?.id===p.id?' active':''))),
+    ...items.map(p => button(p.name, () => {state.project=p.id;state.view='work';state.task=null;render();}, 'project-item' + (state.view==='work'&&p.id === state.project ? ' active' : ''))));
+}
+
+function observedProject() {
+  const projects = state.data?.observed?.projects || [];
+  return projects.find(p=>p.id===state.observed) || projects[0];
+}
+function sourceText(title, text, className='') {
+  const section = node('section','source-card ' + className);
+  section.append(node('h2','',title),node('p','source-copy',text || 'Not recorded in this checkpoint.'));
+  return section;
+}
+function expandable(title, text) {
+  const details = node('details','source-expand');
+  details.append(node('summary','',title),node('p','source-copy',text || 'Not recorded.'));
+  return details;
+}
+function renderOverview() {
+  if (state.view !== 'overview') return;
+  const project = observedProject();
+  const key = JSON.stringify([project,state.data.observed?.error]);
+  if (overviewKey === key) return;
+  overviewKey = key;
+  const host = $('observed-overview');host.replaceChildren();
+  if (state.data.observed?.error) host.append(node('p','notice',state.data.observed.error));
+  if (!project) {
+    const empty = sourceText('No existing projects connected','Your local assignments are available under Work. An existing cockpit can be connected read-only from the local launcher.');
+    empty.append(button('View assignments',()=>{state.view='work';render();},'primary'));host.append(empty);return;
+  }
+  if (project.status !== 'available') {host.append(sourceText('Project status is unavailable',project.error));return;}
+  const line = node('div','source-dateline');
+  line.append(node('span','badge','Read-only connection'),node('span','','Checkpoint: ' + when(project.checkpoint_at)),
+    node('span','','Task list: ' + when(project.tasks_at)));
+  host.append(line);
+  const focus = sourceText('Latest recorded focus',project.focus,'source-focus');
+  focus.append(node('p','source-boundary','This view reads the existing project records. Owners continue working through their current tools.'));
+  host.append(focus);
+  const updates = node('div','source-updates');
+  project.items.forEach(item=>{
+    const card = node('article','source-card source-update');
+    card.append(node('span','source-signal ' + (item.cls==='crit'?'critical':''),'Recorded update'),node('h3','',item.lamp || item.state.replaceAll('_',' ')),
+      expandable('Read the update',item.word));updates.append(card);
+  });
+  if (project.items.length) host.append(updates);
+  const next = sourceText('Next step recorded by the project',project.next,'source-next');
+  if(project.decision.owner)next.append(node('div','source-owner','Decision owner: ' + project.decision.owner));
+  if(project.decision.recommended)next.append(expandable('Recorded recommendation',project.decision.recommended));
+  if(project.decision.alternative)next.append(expandable('Recorded alternative',project.decision.alternative));
+  host.append(next);
+  const evidence = node('div','source-evidence');
+  evidence.append(expandable('Execution evidence and scope', [project.sample,project.scope].filter(Boolean).join('\n\n')));host.append(evidence);
+  const counts = project.counts;
+  const stats = node('div','summary source-stats');
+  [[project.tasks.length,'Recorded tasks'],[counts.done||0,'Reported complete'],[counts.in_progress||0,'Reported in progress'],[counts.blocked||0,'Reported blocked']].forEach(([value,label])=>{
+    const stat = node('div','stat');stat.append(node('strong','',value),node('span','',label));stats.append(stat);
+  });host.append(stats);
+  const heading = node('div','section-heading');heading.append(node('h2','','Existing task list'),node('span','muted','Owner and status as recorded'));host.append(heading);
+  if(project.tasks_older)host.append(node('p','notice','The task list predates the checkpoint above. Its next actions may have been superseded. These records are for reference and are not dispatched by Medulla.'));
+  const list = node('div','source-tasks');
+  project.tasks.forEach(task=>{
+    const details=node('details','source-task');const summary=node('summary');
+    const title=node('div');title.append(node('strong','',task.title),node('small','',task.owner + ' · ' + task.id));
+    summary.append(title,node('span','badge',task.status.replaceAll('_',' ')));details.append(summary);
+    details.append(node('p','muted','Last recorded: ' + when(task.updated)));
+    if(task.blocker)details.append(sourceText('Recorded blocker',task.blocker));
+    if(task.next_action)details.append(sourceText('Recorded next action',task.next_action));
+    if(task.evidence_required)details.append(expandable('Completion evidence required',task.evidence_required));
+    list.append(details);
+  });host.append(list);
+  const sources = node('details','source-expand source-files');sources.append(node('summary','','Source details'));
+  sources.append(node('p','','Original cockpit (local file):'),node('code','hash',project.cockpit_path));
+  project.sources.forEach(source=>sources.append(node('p','hash',source.path + '\nSHA-256 ' + source.sha256)));
+  host.append(sources);
 }
 function renderWork() {
   let tasks = state.data.tasks.filter(t => !state.project || t.project_id === state.project);
@@ -214,6 +293,7 @@ $('add-agent').addEventListener('click',()=>openDialog('agent-dialog'));$('statu
 $('task-project').addEventListener('change',taskOptions);$('task-agent').addEventListener('change',taskOptions);
 $('pause').addEventListener('click',async()=>{try{await api('/api/pause',{paused:!state.data.paused});await refresh();}catch(error){notice(error.message,'error');}});
 $('export').addEventListener('click',async()=>{try{download('medulla-records.json',JSON.stringify(await api('/api/export'),null,2));}catch(error){notice(error.message,'error');}});
+$('refresh-overview').addEventListener('click',async()=>{overviewKey='';await refresh();});
 $('sign-out').addEventListener('click',async()=>{await api('/api/logout',{});lock();});
 const launchTicket = new URLSearchParams(location.hash.slice(1)).get('ticket');
 if(launchTicket){

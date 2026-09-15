@@ -13,6 +13,7 @@ from urllib.parse import urlsplit, parse_qs
 from . import __version__
 from .store import Problem
 from .workers import Workers
+from .sources import Sources
 
 WEB = Path(__file__).with_name('web')
 ASSETS = {'/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascript'),
@@ -21,11 +22,14 @@ ASSETS = {'/': ('index.html', 'text/html'), '/app.js': ('app.js', 'text/javascri
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = False
+    # Permit a same-port restart after shutdown; this is not SO_REUSEPORT and
+    # cannot replace an active listener. The state-directory lock still applies.
+    allow_reuse_address = True
 
     def __init__(self, store, admin_token, port=0):
         self.store, self.admin_token = store, admin_token
         self.workers = Workers(store)
+        self.sources = Sources(store.path.parent)
         self.session_token = secrets.token_urlsafe(32)
         self.login_lock, self.failed_logins = threading.Lock(), []
         self.tickets = {}
@@ -118,7 +122,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(401, {'error': 'Operator sign-in required'})
         if path == '/api/state':
             return self.reply(200, {**self.server.store.snapshot(), 'version': __version__,
-                                    'local_agent_id': self.server.local_agent_id})
+                                    'local_agent_id': self.server.local_agent_id,
+                                    'observed': self.server.sources.snapshot()})
         if path == '/api/export':
             return self.reply(200, {**self.server.store.export(), 'version': __version__},
                               headers={'Content-Disposition': 'attachment; filename="medulla-records.json"'})

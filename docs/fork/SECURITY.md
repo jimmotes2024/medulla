@@ -24,3 +24,8 @@ Cancellation is cooperative. After losing an attempt or credential, the worker m
 The built-in worker performs only deterministic analysis of assigned text and accepted artifacts. It makes no model calls and reads no project files. Use it to verify delivery and review behavior before connecting a real agent.
 
 Never commit `.medulla-local/`, tokens, database files, raw customer records or local connection files. Preserve and protect exports according to their contents. Upstream installers and the retained upstream permission defaults are not used by this local runtime.
+
+
+## Read-only project connections — 0.12.1
+
+The local CLI explicitly selects the source directory. Only two fixed JSON filenames are read, with size/type limits and symlink refusal. Connections are private mode-0600 files in ignored state. Source content is operator-only and rendered as text; no original project HTML, JavaScript, arbitrary path endpoint, execution authority or source write is introduced. Recorded owner/status fields are not live agent telemetry.

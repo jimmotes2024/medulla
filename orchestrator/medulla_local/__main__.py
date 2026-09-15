@@ -13,6 +13,7 @@ from .local_worker import attach, run_once
 from .security import StateLock, credential, private_write
 from .server import Server
 from .store import Store
+from .sources import Sources
 
 
 def main():
@@ -37,6 +38,10 @@ def main():
     call.add_argument('path')
     launch = sub.add_parser('open-url', help='Print a single-use console link (expires in 60 seconds)')
     launch.add_argument('--state-dir', default='.medulla-local')
+    connect = sub.add_parser('connect-cockpit', help='Show an existing cockpit project read-only')
+    connect.add_argument('--state-dir', default='.medulla-local')
+    connect.add_argument('--directory', required=True, help='Existing instrument-panel directory')
+    connect.add_argument('--name', required=True, help='Project name displayed in the overview')
     args = parser.parse_args()
     os.umask(0o077)
     if args.command == 'serve':
@@ -68,6 +73,11 @@ def main():
         endpoint = json.loads((directory/'endpoint.json').read_text())
         client = Client(endpoint['url'], (directory/'operator.key').read_text().strip())
         print(client.post('/api/open-ticket')['url'])
+    elif args.command == 'connect-cockpit':
+        directory = Path(args.state_dir).resolve(strict=True)
+        if not (directory / 'operator.key').is_file():
+            raise ValueError('Start this coordinator before connecting a project')
+        print(json.dumps({'source_id': Sources(directory).connect(args.directory, args.name), 'read_only': True}))
     elif args.command == 'enroll':
         destination = Path(args.out)
         if destination.exists() or destination.is_symlink():

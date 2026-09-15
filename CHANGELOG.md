@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.1 — September 15, 2026
+
+- Overview opens on explicitly connected existing projects, showing recorded focus, updates, decision owner, next step, task owners and source dates.
+- Local `connect-cockpit` command records a private read-only connection to the supported task/checkpoint JSON schemas. Source files remain untouched and observed tasks never enter the execution queue.
+- The newest dated checkpoint is presented separately from the older task list. Source checksums and missing/incompatible source states remain inspectable.
+- Fixed-path bounded JSON reads refuse source-file and child-directory symlinks. Project records stay behind operator authentication; source HTML and scripts are never served or executed.
+- Added eleven integration and HTTP tests; 49 tests pass. Same-port restart is supported without replacing an active listener. Native execution and existing agent sessions remain unchanged.
+
 ## 0.12.0 — September 14, 2026
 
 First local coordinator release in Jim's fork. Independently runnable alongside existing tools, with no upstream cloud or OpenHuman dependency.

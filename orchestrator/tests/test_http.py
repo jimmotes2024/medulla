@@ -11,6 +11,7 @@ from medulla_local.client import Client
 from medulla_local.local_worker import run_once
 from medulla_local.server import Server
 from medulla_local.store import Store
+from test_sources import write_cockpit
 
 
 class HttpTest(unittest.TestCase):
@@ -97,6 +98,10 @@ class HttpTest(unittest.TestCase):
         self.assertEqual(headers['Cache-Control'],'no-store')
         self.assertNotIn('Access-Control-Allow-Origin',headers)
 
+    def test_port_reuse_cannot_replace_an_active_listener(self):
+        with self.assertRaises(OSError):
+            Server(self.store,'other-test-key',self.server.server_port)
+
     def test_real_worker_handoff_approval_review_and_dependency(self):
         project = self.admin.post('/api/projects',{'name':'Disposable protocol rehearsal'})['id']
         first = self.admin.post('/api/tasks',{'project_id':project,'title':'Fingerprint','instruction':'Real bounded text analysis','agent_id':self.agent})['id']
@@ -135,6 +140,29 @@ class HttpTest(unittest.TestCase):
 
     def test_protocol_refuses_worker_identity_injection(self):
         self.assertEqual(self.request('POST','/api/worker/attempt',{'agent_id':'operator','attempt_id':'x','operation':'start'},self.key)[0],400)
+
+    def test_connected_project_is_private_and_never_enters_execution_queue(self):
+        root = Path(self.tmp.name)/'example-panel';write_cockpit(root)
+        self.server.sources.connect(root,'Example project')
+        status, _, raw = self.request('GET','/api/state',token=self.server.admin_token)
+        self.assertEqual(status,200)
+        state = json.loads(raw)
+        self.assertEqual(state['observed']['projects'][0]['tasks'][0]['id'],'EXAMPLE-1')
+        self.assertEqual(state['tasks'],[])
+        self.assertEqual(state['projects'],[])
+        self.assertIsNone(self.worker.post('/api/worker/claim')['assignment'])
+        self.assertEqual(self.request('GET','/api/state',token=self.key)[0],401)
+        self.assertEqual(self.request('POST','/api/tasks/action',{'task_id':'EXAMPLE-1','action':'approve'},self.server.admin_token)[0],400)
+        self.assertEqual(self.request('GET','/api/source-file?path=tasks/TASKS.v1.json',token=self.server.admin_token)[0],404)
+
+    def test_broken_project_connection_does_not_hide_local_assignments(self):
+        (Path(self.tmp.name)/'sources.json').write_text('invalid')
+        self.admin.post('/api/projects',{'name':'Local work'})
+        status, _, raw = self.request('GET','/api/state',token=self.server.admin_token)
+        self.assertEqual(status,200)
+        state = json.loads(raw)
+        self.assertEqual(state['projects'][0]['name'],'Local work')
+        self.assertIsNotNone(state['observed']['error'])
 
 
 if __name__ == '__main__':
